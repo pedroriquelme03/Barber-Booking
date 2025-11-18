@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import AppointmentsView from './AppointmentsView';
 import ServicesView from './ServicesView';
+import ProfessionalsView from './ProfessionalsView';
+import ScheduleView from './ScheduleView';
 
-export type AdminView = 'appointments' | 'services';
+export type AdminView = 'appointments' | 'services' | 'professionals' | 'schedule';
 
 const Admin: React.FC = () => {
   const [activeView, setActiveView] = useState<AdminView>('appointments');
@@ -14,6 +16,10 @@ const Admin: React.FC = () => {
         return <AppointmentsView />;
       case 'services':
         return <ServicesView />;
+      case 'professionals':
+        return <ProfessionalsView />;
+      case 'schedule':
+        return <ScheduleView />;
       default:
         return <AppointmentsView />;
     }
