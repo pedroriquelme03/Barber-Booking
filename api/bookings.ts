@@ -24,6 +24,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 		const professionalId = (req.query.professional_id as string) || undefined;
 		const from = (req.query.from as string) || undefined; // yyyy-mm-dd
 		const to = (req.query.to as string) || undefined;     // yyyy-mm-dd
+		const serviceId = (req.query.service_id as string) || undefined;
+		const clientQuery = (req.query.client as string) || undefined; // name/email/phone ilike
+		const time = (req.query.time as string) || undefined; // HH:MM
+		const timeFrom = (req.query.time_from as string) || undefined; // HH:MM
+		const timeTo = (req.query.time_to as string) || undefined;     // HH:MM
 
 		const client = await getClient();
 		try {
@@ -41,6 +46,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 			if (to) {
 				params.push(to);
 				where.push(`b.date <= $${params.length}`);
+			}
+			if (serviceId) {
+				params.push(serviceId);
+				where.push(`exists (select 1 from public.booking_services x where x.booking_id = b.id and x.service_id = $${params.length})`);
+			}
+			if (clientQuery) {
+				params.push(`%${clientQuery}%`);
+				params.push(`%${clientQuery}%`);
+				params.push(`%${clientQuery}%`);
+				where.push(`(c.name ilike $${params.length-2} or c.email ilike $${params.length-1} or c.phone ilike $${params.length})`);
+			}
+			if (time) {
+				params.push(`${time}:00`);
+				where.push(`b.time = $${params.length}`);
+			} else if (timeFrom) {
+				params.push(`${timeFrom}:00`);
+				where.push(`b.time >= $${params.length}`);
+			}
+			if (!time && timeTo) {
+				params.push(`${timeTo}:00`);
+				where.push(`b.time <= $${params.length}`);
 			}
 
 			const whereSql = where.length ? `where ${where.join(' and ')}` : '';

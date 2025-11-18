@@ -1,66 +1,209 @@
-import React from 'react';
-import { Booking } from '../../types';
-import { MOCK_BOOKINGS } from '../../admin-constants';
-import { CalendarIcon, ClockIcon, DollarSignIcon, UserIcon } from '../icons';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CalendarIcon } from '../icons';
 
-const AppointmentCard: React.FC<{ booking: Booking }> = ({ booking }) => {
-    const totalPrice = booking.services.reduce((acc, s) => acc + s.price, 0);
+type Professional = { id: string; name: string; };
+type Service = { id: number; name: string; };
 
-    return (
-        <div className="bg-gray-800 p-5 rounded-lg border border-gray-700 hover:border-amber-500 transition-colors duration-300">
-            <div className="flex justify-between items-start">
-                <div>
-                    <h3 className="text-lg font-bold text-white">{booking.client.name}</h3>
-                    <p className="text-sm text-gray-400">{booking.client.phone}</p>
-                </div>
-                <div className="text-right">
-                    <p className="font-bold text-amber-400 text-lg">R${totalPrice.toFixed(2)}</p>
-                    <p className="text-sm text-gray-300">{booking.time}</p>
-                </div>
-            </div>
-            <div className="border-t border-gray-600 my-3"></div>
-            <div>
-                <h4 className="font-semibold mb-2 text-gray-200">Serviços:</h4>
-                <ul className="list-disc list-inside text-gray-300 space-y-1">
-                    {booking.services.map(s => <li key={s.id}>{s.name}</li>)}
-                </ul>
-            </div>
-            {booking.client.notes && (
-                <div className="mt-3 pt-3 border-t border-gray-600">
-                    <p className="text-sm text-gray-400"><span className="font-semibold text-gray-200">Obs:</span> {booking.client.notes}</p>
-                </div>
-            )}
-        </div>
-    )
+type BookingRow = {
+  booking_id: string;
+  date: string; // yyyy-mm-dd
+  time: string; // HH:MM:SS
+  professional_id: string | null;
+  client_id: string;
+  client_name: string;
+  client_phone: string;
+  client_email: string;
+  total_price: string;
+  total_duration_minutes: number;
+  services: Array<{
+    id: number;
+    name: string;
+    price: number;
+    duration_minutes: number;
+    quantity: number;
+  }>;
 }
 
 const AppointmentsView: React.FC = () => {
-    const upcomingBookings = MOCK_BOOKINGS.sort((a,b) => a.date.getTime() - b.date.getTime());
-    
-    // Group bookings by date
-    const groupedBookings = upcomingBookings.reduce((acc, booking) => {
-        const dateString = booking.date.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
-        if(!acc[dateString]) {
-            acc[dateString] = [];
-        }
-        acc[dateString].push(booking);
-        return acc;
-    }, {} as Record<string, Booking[]>);
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
 
+  const [professionalId, setProfessionalId] = useState<string>('');
+  const [serviceId, setServiceId] = useState<string>('');
+  const [clientQuery, setClientQuery] = useState<string>('');
+  const [time, setTime] = useState<string>(''); // HH:MM
+  const [timeFrom, setTimeFrom] = useState<string>(''); // HH:MM
+  const [timeTo, setTimeTo] = useState<string>(''); // HH:MM
+
+  const [bookings, setBookings] = useState<BookingRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [proRes, srvRes] = await Promise.all([
+          fetch('/api/professionals'),
+          fetch('/api/services')
+        ]);
+        if (proRes.ok) {
+          const j = await proRes.json();
+          setProfessionals((j.professionals || []).map((p: any) => ({ id: p.id, name: p.name })));
+        }
+        if (srvRes.ok) {
+          const j = await srvRes.json();
+          setServices((j.services || []).map((s: any) => ({ id: s.id, name: s.name })));
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const url = new URL('/api/bookings', window.location.origin);
+      if (professionalId) url.searchParams.set('professional_id', professionalId);
+      if (serviceId) url.searchParams.set('service_id', serviceId);
+      if (clientQuery) url.searchParams.set('client', clientQuery);
+      if (time) url.searchParams.set('time', time);
+      if (!time && timeFrom) url.searchParams.set('time_from', timeFrom);
+      if (!time && timeTo) url.searchParams.set('time_to', timeTo);
+      const res = await fetch(url.toString());
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Erro ao carregar agendamentos');
+      setBookings(data.bookings || []);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [professionalId, serviceId, clientQuery, time, timeFrom, timeTo]);
+
+  const grouped = useMemo(() => {
+    const m = new Map<string, BookingRow[]>();
+    bookings.forEach(b => {
+      const key = b.date;
+      const arr = m.get(key) || [];
+      arr.push(b);
+      m.set(key, arr);
+    });
+    return Array.from(m.entries()).sort(([a],[b]) => a.localeCompare(b));
+  }, [bookings]);
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-white mb-6">Próximos Agendamentos</h2>
-      <div className="space-y-6">
-        {Object.entries(groupedBookings).map(([date, bookings]) => (
-            <div key={date}>
-                <h3 className="text-amber-400 font-bold text-lg mb-3 pb-2 border-b-2 border-gray-700">{date}</h3>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {bookings.sort((a,b) => a.time.localeCompare(b.time)).map((booking, index) => (
-                        <AppointmentCard key={index} booking={booking} />
-                    ))}
-                </div>
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+        <h2 className="text-2xl font-bold text-white">Agendamentos</h2>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Profissional</label>
+            <select
+              value={professionalId}
+              onChange={e => setProfessionalId(e.target.value)}
+              className="w-full bg-gray-800 text-white border border-gray-700 rounded px-3 py-2"
+            >
+              <option value="">Todos</option>
+              {professionals.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Serviço</label>
+            <select
+              value={serviceId}
+              onChange={e => setServiceId(e.target.value)}
+              className="w-full bg-gray-800 text-white border border-gray-700 rounded px-3 py-2"
+            >
+              <option value="">Todos</option>
+              {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Cliente</label>
+            <input
+              value={clientQuery}
+              onChange={e => setClientQuery(e.target.value)}
+              placeholder="Nome, e-mail ou telefone"
+              className="w-full bg-gray-800 text-white border border-gray-700 rounded px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Horário exato</label>
+            <input
+              type="time"
+              value={time}
+              onChange={e => { setTime(e.target.value); }}
+              className="w-full bg-gray-800 text-white border border-gray-700 rounded px-3 py-2"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">De</label>
+              <input
+                type="time"
+                value={timeFrom}
+                onChange={e => { setTimeFrom(e.target.value); if (time) setTime(''); }}
+                className="w-full bg-gray-800 text-white border border-gray-700 rounded px-3 py-2"
+              />
             </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Até</label>
+              <input
+                type="time"
+                value={timeTo}
+                onChange={e => { setTimeTo(e.target.value); if (time) setTime(''); }}
+                className="w-full bg-gray-800 text-white border border-gray-700 rounded px-3 py-2"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {error && <div className="text-red-400 mb-4">{error}</div>}
+
+      {loading && <div className="text-gray-300">Carregando...</div>}
+
+      {!loading && grouped.length === 0 && (
+        <div className="text-gray-400">Nenhum agendamento encontrado com os filtros selecionados.</div>
+      )}
+
+      <div className="space-y-6">
+        {grouped.map(([date, rows]) => (
+          <div key={date}>
+            <h3 className="text-amber-400 font-bold text-lg mb-3 pb-2 border-b-2 border-gray-700">
+              {new Date(date).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+            </h3>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {rows.sort((a,b) => a.time.localeCompare(b.time)).map(b => (
+                <div key={b.booking_id} className="bg-gray-800 p-5 rounded-lg border border-gray-700 hover:border-amber-500 transition-colors duration-300">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="text-lg font-bold text-white">{b.client_name}</h4>
+                      <p className="text-sm text-gray-400">{b.client_phone}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-amber-400 text-lg">R${Number(b.total_price).toFixed(2)}</p>
+                      <p className="text-sm text-gray-300">{b.time.slice(0,5)}</p>
+                    </div>
+                  </div>
+                  <div className="border-t border-gray-600 my-3"></div>
+                  <div>
+                    <h5 className="font-semibold mb-2 text-gray-200">Serviços:</h5>
+                    <ul className="list-disc list-inside text-gray-300 space-y-1">
+                      {(b.services || []).map(s => (
+                        <li key={s.id}>{s.name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </div>
