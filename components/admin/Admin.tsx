@@ -1,0 +1,34 @@
+import React, { useState } from 'react';
+import Sidebar from './Sidebar';
+import AppointmentsView from './AppointmentsView';
+import ServicesView from './ServicesView';
+
+export type AdminView = 'appointments' | 'services';
+
+const Admin: React.FC = () => {
+  const [activeView, setActiveView] = useState<AdminView>('appointments');
+
+  const renderContent = () => {
+    switch (activeView) {
+      case 'appointments':
+        return <AppointmentsView />;
+      case 'services':
+        return <ServicesView />;
+      default:
+        return <AppointmentsView />;
+    }
+  };
+
+  return (
+    <div className="flex flex-col md:flex-row gap-8">
+      <div className="md:w-64 flex-shrink-0">
+        <Sidebar activeView={activeView} setActiveView={setActiveView} />
+      </div>
+      <div className="flex-grow">
+        {renderContent()}
+      </div>
+    </div>
+  );
+};
+
+export default Admin;
