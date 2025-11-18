@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Service, Booking, Client } from './types';
 import { MOCK_SERVICES } from './constants';
@@ -8,6 +7,7 @@ import ServiceSelector from './components/ServiceSelector';
 import DateTimePicker from './components/DateTimePicker';
 import UserDetailsForm from './components/UserDetailsForm';
 import ConfirmationPage from './components/ConfirmationPage';
+import Admin from './components/admin/Admin';
 
 type Step = 'services' | 'datetime' | 'details' | 'confirmation';
 
@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [booking, setBooking] = useState<Partial<Booking>>({
     services: [],
   });
+  const [isAdminView, setIsAdminView] = useState(false);
 
   const totalDuration = useMemo(() => 
     booking.services?.reduce((total, s) => total + s.duration, 0) || 0,
@@ -42,9 +43,14 @@ const App: React.FC = () => {
   };
 
   const startNewBooking = () => {
+    setIsAdminView(false);
     setBooking({ services: [] });
     setStep('services');
   };
+
+  const toggleAdminView = () => {
+    setIsAdminView(prev => !prev);
+  }
   
   const renderStep = () => {
     switch (step) {
@@ -88,12 +94,22 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 font-sans">
-      <Header onBookNowClick={startNewBooking} />
+      <Header 
+        onBookNowClick={startNewBooking} 
+        onAdminClick={toggleAdminView}
+        isAdminView={isAdminView}
+      />
       <main className="container mx-auto p-4 md:p-8">
-        {step !== 'confirmation' && <StepIndicator currentStep={step} />}
-        <div className="mt-8">
-          {renderStep()}
-        </div>
+        {isAdminView ? (
+          <Admin />
+        ) : (
+          <>
+            {step !== 'confirmation' && <StepIndicator currentStep={step} />}
+            <div className="mt-8">
+              {renderStep()}
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
