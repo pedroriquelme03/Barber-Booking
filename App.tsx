@@ -10,6 +10,7 @@ import UserDetailsForm from './components/UserDetailsForm';
 import ConfirmationPage from './components/ConfirmationPage';
 import Admin from './components/admin/Admin';
 import ProfilesList from './components/ProfilesList';
+import TestSupabaseConnection from './components/TestSupabaseConnection';
 
 type Step = 'services' | 'datetime' | 'details' | 'confirmation';
 
@@ -95,6 +96,7 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/admin" element={<Admin />} />
           <Route path="/profiles" element={<ProfilesList />} />
+          <Route path="/supabase-test" element={<TestSupabaseConnection />} />
           <Route
             path="/"
             element={
