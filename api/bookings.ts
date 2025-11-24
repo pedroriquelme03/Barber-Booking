@@ -18,92 +18,108 @@ async function getClient() {
 export default async function handler(req: any, res: any) {
 	if (req.method === 'GET') {
 		try {
-			const professionalId = (req.query.professional_id as string) || undefined;
-			const from = (req.query.from as string) || undefined; // yyyy-mm-dd
-			const to = (req.query.to as string) || undefined;     // yyyy-mm-dd
-			const serviceId = (req.query.service_id as string) || undefined;
-			const clientQuery = (req.query.client as string) || undefined; // name/email/phone ilike
-			const time = (req.query.time as string) || undefined; // HH:MM
-			const timeFrom = (req.query.time_from as string) || undefined; // HH:MM
-			const timeTo = (req.query.time_to as string) || undefined;     // HH:MM
-	
-			const client = await getClient();
-			try {
-				const params: any[] = [];
-				const where: string[] = [];
-	
-				if (professionalId) {
-					params.push(professionalId);
-					where.push(`b.professional_id = $${params.length}`);
-				}
-				if (from) {
-					params.push(from);
-					where.push(`b.date >= $${params.length}`);
-				}
-				if (to) {
-					params.push(to);
-					where.push(`b.date <= $${params.length}`);
-				}
-				if (serviceId) {
-					params.push(serviceId);
-					where.push(`exists (select 1 from public.booking_services x where x.booking_id = b.id and x.service_id = $${params.length})`);
+			// Criar cliente Supabase com credenciais de servidor
+			const supabaseUrl =
+				process.env.SUPABASE_URL ||
+				process.env.VITE_SUPABASE_URL;
+			const supabaseKey =
+				process.env.SUPABASE_SERVICE_ROLE_KEY ||
+				process.env.VITE_SUPABASE_ANON_KEY;
+			if (!supabaseUrl || !supabaseKey) {
+				return res.status(500).json({ ok: false, error: 'SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY não configurados' });
+			}
+			const supabase = createSupabaseClient(supabaseUrl, supabaseKey);
+
+			// Ler query string com fallback seguro
+			const urlObj = new URL(req?.url || '/', 'http://localhost');
+			const professionalId = urlObj.searchParams.get('professional_id') || undefined;
+			const serviceId = urlObj.searchParams.get('service_id') || undefined;
+			const clientQuery = urlObj.searchParams.get('client') || undefined;
+			const time = urlObj.searchParams.get('time') || undefined;            // HH:MM
+			const timeFrom = urlObj.searchParams.get('time_from') || undefined;   // HH:MM
+			const timeTo = urlObj.searchParams.get('time_to') || undefined;       // HH:MM
+			const from = urlObj.searchParams.get('from') || undefined;            // yyyy-mm-dd (opcional)
+			const to = urlObj.searchParams.get('to') || undefined;                // yyyy-mm-dd (opcional)
+
+			// Montar query base
+			let query = supabase
+				.from('bookings')
+				.select(`
+          id,
+          date,
+          time,
+          professional_id,
+          clients:client_id ( id, name, phone, email ),
+          booking_services (
+            quantity,
+            services:service_id ( id, name, price, duration_minutes )
+          )
+        `)
+				.order('date', { ascending: true })
+				.order('time', { ascending: true });
+
+			if (professionalId) {
+				query = query.eq('professional_id', professionalId);
+			}
+			if (from) {
+				query = query.gte('date', from);
+			}
+			if (to) {
+				query = query.lte('date', to);
+			}
+			if (time) {
+				query = query.eq('time', `${time}:00`);
+			} else {
+				if (timeFrom) query = query.gte('time', `${timeFrom}:00`);
+				if (timeTo) query = query.lte('time', `${timeTo}:00`);
+			}
+
+			const { data, error } = await query;
+			if (error) {
+				return res.status(500).json({ ok: false, error: error.message });
+			}
+
+			// Mapear e aplicar filtros de serviço/cliente no app
+			const rows = (data || []).map((b: any) => {
+				const services = (b.booking_services || []).map((bs: any) => ({
+					id: bs?.services?.id,
+					name: bs?.services?.name,
+					price: bs?.services?.price,
+					duration_minutes: bs?.services?.duration_minutes,
+					quantity: bs?.quantity ?? 1,
+				})).filter((s: any) => s.id != null);
+
+				const total_price = services.reduce((sum: number, s: any) => sum + Number(s.price || 0) * Number(s.quantity || 1), 0);
+				const total_duration_minutes = services.reduce((sum: number, s: any) => sum + Number(s.duration_minutes || 0) * Number(s.quantity || 1), 0);
+
+				return {
+					booking_id: b.id,
+					date: b.date,
+					time: b.time,
+					professional_id: b.professional_id,
+					client_id: b.clients?.id,
+					client_name: b.clients?.name,
+					client_phone: b.clients?.phone,
+					client_email: b.clients?.email,
+					total_price: total_price.toFixed(2),
+					total_duration_minutes,
+					services,
+				};
+			});
+
+			const filtered = rows.filter((r: any) => {
+				if (serviceId && !(r.services || []).some((s: any) => String(s.id) === String(serviceId))) {
+					return false;
 				}
 				if (clientQuery) {
-					params.push(`%${clientQuery}%`);
-					params.push(`%${clientQuery}%`);
-					params.push(`%${clientQuery}%`);
-					where.push(`(c.name ilike $${params.length-2} or c.email ilike $${params.length-1} or c.phone ilike $${params.length})`);
+					const q = clientQuery.toLowerCase();
+					const hay = `${r.client_name || ''} ${r.client_email || ''} ${r.client_phone || ''}`.toLowerCase();
+					if (!hay.includes(q)) return false;
 				}
-				if (time) {
-					params.push(`${time}:00`);
-					where.push(`b.time = $${params.length}`);
-				} else if (timeFrom) {
-					params.push(`${timeFrom}:00`);
-					where.push(`b.time >= $${params.length}`);
-				}
-				if (!time && timeTo) {
-					params.push(`${timeTo}:00`);
-					where.push(`b.time <= $${params.length}`);
-				}
-	
-				const whereSql = where.length ? `where ${where.join(' and ')}` : '';
-	
-				const sql = `
-          select
-            b.id as booking_id,
-            b.date,
-            b.time,
-            b.professional_id,
-            c.id as client_id,
-            c.name as client_name,
-            c.phone as client_phone,
-            c.email as client_email,
-            coalesce(sum(s.price * bs.quantity), 0)::numeric(10,2) as total_price,
-            coalesce(sum(s.duration_minutes * bs.quantity), 0)::int as total_duration_minutes,
-            json_agg(
-              json_build_object(
-                'id', s.id,
-                'name', s.name,
-                'price', s.price,
-                'duration_minutes', s.duration_minutes,
-                'quantity', bs.quantity
-              )
-              order by s.name
-            ) filter (where s.id is not null) as services
-          from public.bookings b
-          join public.clients c on c.id = b.client_id
-          left join public.booking_services bs on bs.booking_id = b.id
-          left join public.services s on s.id = bs.service_id
-          ${whereSql}
-          group by b.id, c.id
-          order by b.date asc, b.time asc
-        `;
-	
-				const { rows } = await client.query(sql, params);
-				return res.status(200).json({ ok: true, bookings: rows });
-			} finally {
-				await client.end();
-			}
+				return true;
+			});
+
+			return res.status(200).json({ ok: true, bookings: filtered });
 		} catch (err: any) {
 			return res.status(500).json({ ok: false, error: err?.message || 'Erro inesperado' });
 		}
