@@ -35,6 +35,7 @@ const ScheduleView: React.FC = () => {
 
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const [monthSelectedDate, setMonthSelectedDate] = useState<Date | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -282,27 +283,57 @@ const ScheduleView: React.FC = () => {
                   key={idx}
                   className={`p-2 rounded border cursor-pointer ${inMonth ? 'border-gray-700 bg-gray-800 hover:border-amber-500' : 'border-gray-800 bg-gray-900/40'}`}
                   style={{ aspectRatio: '1 / 1' }}
-                  onClick={() => { setCurrentDate(day); setView('day'); }}
-                  title="Ver dia"
+                  onClick={() => { setMonthSelectedDate(day); }}
+                  title="Listar agendamentos do dia abaixo"
                 >
                   <div className={`text-sm mb-2 ${inMonth ? 'text-gray-200' : 'text-gray-500'}`}>
                     {day.getDate().toString().padStart(2,'0')}
                   </div>
-                  <div className="space-y-1">
-                    {rows.slice(0,3).sort((a,b)=>a.time.localeCompare(b.time)).map(b => (
-                      <div key={b.booking_id} className="text-xs bg-gray-700/60 rounded px-1 py-0.5 flex justify-between">
-                        <span className="text-gray-200">{b.time.slice(0,5)}</span>
-                        <span className="text-gray-300 truncate max-w-[80px]">{b.client_name}</span>
-                      </div>
-                    ))}
-                    {rows.length > 3 && (
-                      <div className="text-xs text-gray-400">+{rows.length - 3} mais</div>
-                    )}
+                  <div className="mt-auto">
+                    <span className={`text-xs font-semibold ${rows.length ? 'text-amber-400' : 'text-gray-500'}`}>
+                      {rows.length ? `${rows.length} agend.` : '—'}
+                    </span>
                   </div>
                 </div>
               );
             });
           })()}
+        </div>
+      )}
+
+      {selected && !loading && view === 'month' && monthSelectedDate && (
+        <div className="mt-6 mb-6">
+          <h3 className="text-amber-400 font-bold text-lg mb-3 pb-2 border-b-2 border-gray-700">
+            {monthSelectedDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+          </h3>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {(grouped.find(([d]) => d === formatDate(monthSelectedDate))?.[1] || [])
+              .sort((a,b) => a.time.localeCompare(b.time))
+              .map(b => (
+              <div key={b.booking_id} className="bg-gray-800 p-5 rounded-lg border border-gray-700">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="text-lg font-bold text-white">{b.client_name}</h4>
+                    <p className="text-sm text-gray-400">{b.client_phone}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-amber-400 text-lg">R${Number(b.total_price).toFixed(2)}</p>
+                    <p className="text-sm text-gray-300">{b.time.slice(0,5)}</p>
+                  </div>
+                </div>
+                <div className="border-t border-gray-600 my-3"></div>
+                <div>
+                  <h5 className="font-semibold mb-2 text-gray-200">Serviços:</h5>
+                  <ul className="list-disc list-inside text-gray-300 space-y-1">
+                    {(b.services || []).map(s => (<li key={s.id}>{s.name}</li>))}
+                  </ul>
+                </div>
+              </div>
+            ))}
+            {(grouped.find(([d]) => d === formatDate(monthSelectedDate))?.[1] || []).length === 0 && (
+              <div className="text-gray-400">Sem agendamentos para o dia selecionado.</div>
+            )}
+          </div>
         </div>
       )}
     </div>
