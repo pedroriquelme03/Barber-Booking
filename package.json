@@ -9,10 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react-dom": "^19.2.0",
+    "@supabase/supabase-js": "^2.83.0",
+    "pg": "^8.13.1",
     "react": "^19.2.0",
-    "react-router-dom": "^6.28.0",
-    "pg": "^8.13.1"
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^6.28.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
