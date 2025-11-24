@@ -62,14 +62,15 @@ const AppointmentsView: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const url = new URL('/api/bookings', window.location.origin);
-      if (professionalId) url.searchParams.set('professional_id', professionalId);
-      if (serviceId) url.searchParams.set('service_id', serviceId);
-      if (clientQuery) url.searchParams.set('client', clientQuery);
-      if (time) url.searchParams.set('time', time);
-      if (!time && timeFrom) url.searchParams.set('time_from', timeFrom);
-      if (!time && timeTo) url.searchParams.set('time_to', timeTo);
-      const res = await fetch(url.toString());
+      const qs = new URLSearchParams();
+      if (professionalId) qs.set('professional_id', professionalId);
+      if (serviceId) qs.set('service_id', serviceId);
+      if (clientQuery) qs.set('client', clientQuery);
+      if (time) qs.set('time', time);
+      if (!time && timeFrom) qs.set('time_from', timeFrom);
+      if (!time && timeTo) qs.set('time_to', timeTo);
+      const url = `/api/bookings${qs.toString() ? `?${qs.toString()}` : ''}`;
+      const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Erro ao carregar agendamentos');
       setBookings(data.bookings || []);

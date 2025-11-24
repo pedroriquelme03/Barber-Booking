@@ -50,9 +50,9 @@ const ScheduleView: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const url = new URL('/api/bookings', window.location.origin);
-      url.searchParams.set('professional_id', selected);
-      const res = await fetch(url.toString());
+      const qs = new URLSearchParams();
+      qs.set('professional_id', selected);
+      const res = await fetch(`/api/bookings?${qs.toString()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Erro ao carregar agenda');
       setBookings(data.bookings || []);
