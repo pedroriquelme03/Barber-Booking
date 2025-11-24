@@ -47,6 +47,40 @@ export default async function handler(req: any, res: any) {
 			return res.status(201).json({ ok: true, professional: data });
 		}
 
+		if (req.method === 'PUT') {
+			const raw = req.body ?? {};
+			const body = typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return {}; } })() : raw;
+			const { id, name, email, phone, is_active } = (body || {}) as {
+				id?: string;
+				name?: string;
+				email?: string;
+				phone?: string;
+				is_active?: boolean;
+			};
+			if (!id || !name || !email || !phone) {
+				return res.status(400).json({ ok: false, error: 'id, name, email e phone são obrigatórios' });
+			}
+			const { error } = await supabase
+				.from('professionals')
+				.update({
+					name, email, phone,
+					is_active: typeof is_active === 'boolean' ? is_active : true,
+					updated_at: new Date().toISOString(),
+				})
+				.eq('id', id);
+			if (error) return res.status(500).json({ ok: false, error: error.message });
+			return res.status(200).json({ ok: true });
+		}
+
+		if (req.method === 'DELETE') {
+			const urlObj = new URL(req?.url || '/', 'http://localhost');
+			const id = urlObj.searchParams.get('id');
+			if (!id) return res.status(400).json({ ok: false, error: 'id é obrigatório' });
+			const { error } = await supabase.from('professionals').delete().eq('id', id);
+			if (error) return res.status(500).json({ ok: false, error: error.message });
+			return res.status(200).json({ ok: true });
+		}
+
 		res.setHeader('Allow', 'GET, POST');
 		return res.status(405).json({ ok: false, error: 'Método não permitido' });
 	} catch (err: any) {

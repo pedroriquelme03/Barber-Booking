@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { PlusCircleIcon, TrashIcon } from '../icons';
+import { PlusCircleIcon, TrashIcon, PencilIcon } from '../icons';
 
 type Professional = {
   id: string;
@@ -19,6 +19,12 @@ const ProfessionalsView: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editActive, setEditActive] = useState<boolean>(true);
 
   const load = async () => {
     setLoading(true);
@@ -53,6 +59,59 @@ const ProfessionalsView: React.FC = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Erro ao cadastrar profissional');
       setName(''); setEmail(''); setPhone('');
+      await load();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startEdit = (p: Professional) => {
+    setEditingId(p.id);
+    setEditName(p.name);
+    setEditEmail(p.email);
+    setEditPhone(p.phone);
+    setEditActive(p.is_active);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditName('');
+    setEditEmail('');
+    setEditPhone('');
+    setEditActive(true);
+  };
+
+  const saveEdit = async () => {
+    if (!editingId || !editName.trim() || !editEmail.trim() || !editPhone.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/professionals', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingId, name: editName, email: editEmail, phone: editPhone, is_active: editActive })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Erro ao atualizar profissional');
+      await load();
+      cancelEdit();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteProfessional = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este profissional?')) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/professionals?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Erro ao excluir profissional');
       await load();
     } catch (e: any) {
       setError(e.message);
@@ -105,23 +164,54 @@ const ProfessionalsView: React.FC = () => {
               <th className="p-3">E-mail</th>
               <th className="p-3">Telefone</th>
               <th className="p-3">Status</th>
+              <th className="p-3 text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
             {items.map(p => (
               <tr key={p.id} className="border-b border-gray-700/60">
-                <td className="p-3 text-white">{p.name}</td>
-                <td className="p-3 text-gray-300">{p.email}</td>
-                <td className="p-3 text-gray-300">{p.phone}</td>
-                <td className="p-3">
-                  <span className={p.is_active ? 'text-emerald-400' : 'text-gray-400'}>
-                    {p.is_active ? 'Ativo' : 'Inativo'}
-                  </span>
-                </td>
+                {editingId === p.id ? (
+                  <>
+                    <td className="p-3">
+                      <input value={editName} onChange={e => setEditName(e.target.value)} className="bg-gray-700 text-white rounded px-2 py-1 border border-gray-600 w-full" />
+                    </td>
+                    <td className="p-3">
+                      <input value={editEmail} onChange={e => setEditEmail(e.target.value)} className="bg-gray-700 text-white rounded px-2 py-1 border border-gray-600 w-full" />
+                    </td>
+                    <td className="p-3">
+                      <input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="bg-gray-700 text-white rounded px-2 py-1 border border-gray-600 w-full" />
+                    </td>
+                    <td className="p-3">
+                      <label className="inline-flex items-center gap-2 text-gray-300">
+                        <input type="checkbox" checked={editActive} onChange={e => setEditActive(e.target.checked)} />
+                        Ativo
+                      </label>
+                    </td>
+                    <td className="p-3 text-right space-x-2">
+                      <button onClick={saveEdit} className="bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-semibold px-3 py-1 rounded">Salvar</button>
+                      <button onClick={cancelEdit} className="bg-gray-600 hover:bg-gray-500 text-white font-semibold px-3 py-1 rounded">Cancelar</button>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="p-3 text-white">{p.name}</td>
+                    <td className="p-3 text-gray-300">{p.email}</td>
+                    <td className="p-3 text-gray-300">{p.phone}</td>
+                    <td className="p-3">
+                      <span className={p.is_active ? 'text-emerald-400' : 'text-gray-400'}>
+                        {p.is_active ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right space-x-3">
+                      <button onClick={() => startEdit(p)} className="text-gray-300 hover:text-blue-400 align-middle"><PencilIcon className="w-5 h-5 inline" /></button>
+                      <button onClick={() => deleteProfessional(p.id)} className="text-gray-300 hover:text-red-400 align-middle"><TrashIcon className="w-5 h-5 inline" /></button>
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
             {items.length === 0 && !loading && (
-              <tr><td className="p-4 text-gray-400" colSpan={4}>Nenhum profissional cadastrado.</td></tr>
+              <tr><td className="p-4 text-gray-400" colSpan={5}>Nenhum profissional cadastrado.</td></tr>
             )}
           </tbody>
         </table>
