@@ -110,7 +110,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 	if (req.method === 'POST') {
 		try {
-			const body = (req.body || {}) as {
+			// Parse robusto do corpo (Vercel pode entregar string ou objeto)
+			const raw = (req.body ?? {}) as unknown;
+			const parsed = typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch { return {}; } })() : raw;
+
+			const body = (parsed || {}) as {
 				date?: string; // yyyy-mm-dd
 				time?: string; // HH:MM or HH:MM:SS
 				professional_id?: string | null;
@@ -183,13 +187,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 				await client.query('COMMIT');
 				return res.status(201).json({ ok: true, booking_id: bookingId });
 			} catch (e) {
-				await (await client).query('ROLLBACK');
+				try { await client.query('ROLLBACK'); } catch {}
+				// Logar o erro no server para diagnóstico
+				console.error('POST /api/bookings failed:', e);
 				throw e;
 			} finally {
-				await (await client).end();
+				try { await client.end(); } catch {}
 			}
 		} catch (err: any) {
-			return res.status(500).json({ ok: false, error: err?.message || 'Erro inesperado' });
+			return res.status(500).json({
+				ok: false,
+				error: err?.message || 'Erro inesperado',
+			});
 		}
 	}
 
