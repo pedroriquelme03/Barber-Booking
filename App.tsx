@@ -39,9 +39,40 @@ const App: React.FC = () => {
     setStep('details');
   };
 
-  const handleUserDetailsSubmit = (client: Client) => {
-    setBooking(prev => ({ ...prev, client }));
-    setStep('confirmation');
+  const handleUserDetailsSubmit = async (client: Client) => {
+    // Persistir agendamento antes de confirmar
+    const current = { ...booking, client };
+    try {
+      const dateObj = current.date as Date | undefined;
+      const timeStr = (current.time as string | undefined) || '';
+      const services = current.services || [];
+      if (!dateObj || !timeStr || services.length === 0) {
+        alert('Selecione serviços, data e hora antes de confirmar.');
+        return;
+      }
+      const date = dateObj.toISOString().slice(0, 10); // yyyy-mm-dd
+      const time = timeStr.length === 5 ? timeStr : timeStr.slice(0, 5); // HH:MM
+      const body = {
+        date,
+        time,
+        professional_id: null as string | null,
+        client,
+        services: services.map(s => ({ id: s.id, quantity: 1 })),
+      };
+      const res = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error || 'Falha ao criar agendamento');
+      }
+      setBooking(prev => ({ ...prev, client }));
+      setStep('confirmation');
+    } catch (e: any) {
+      alert(e?.message || 'Erro ao confirmar agendamento');
+    }
   };
 
   const startNewBooking = () => {
