@@ -12,7 +12,7 @@ export interface SupabaseTestResult {
   hint?: string;
 }
 
-export async function testSupabaseConnection(): Promise<SupabaseTestResult> {
+export async function testSupabaseConnection(tableName: string = 'professionals'): Promise<SupabaseTestResult> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
@@ -27,7 +27,7 @@ export async function testSupabaseConnection(): Promise<SupabaseTestResult> {
 
   try {
     const { error, status } = await supabase
-      .from('profiles')
+      .from(tableName)
       .select('*')
       .limit(1);
 

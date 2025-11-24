@@ -4,10 +4,11 @@ import { testSupabaseConnection, SupabaseTestResult } from '@/src/lib/testSupaba
 const TestSupabaseConnection: React.FC = () => {
   const [result, setResult] = useState<SupabaseTestResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [tableName, setTableName] = useState<string>('professionals');
 
   const runTest = async () => {
     setLoading(true);
-    const res = await testSupabaseConnection();
+    const res = await testSupabaseConnection(tableName.trim() || 'professionals');
     setResult(res);
     setLoading(false);
   };
@@ -15,6 +16,21 @@ const TestSupabaseConnection: React.FC = () => {
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <h2 style={{ margin: 0 }}>Teste de Conexão com Supabase</h2>
+      <label style={{ display: 'grid', gap: 6 }}>
+        <span style={{ color: '#9ca3af' }}>Nome da tabela</span>
+        <input
+          value={tableName}
+          onChange={(e) => setTableName(e.target.value)}
+          placeholder="professionals"
+          style={{
+            padding: '6px 10px',
+            background: '#111827',
+            color: '#e5e7eb',
+            border: '1px solid #374151',
+            borderRadius: 6
+          }}
+        />
+      </label>
       <button onClick={runTest} disabled={loading} style={{ padding: '6px 10px' }}>
         {loading ? 'Testando...' : 'Rodar teste'}
       </button>
