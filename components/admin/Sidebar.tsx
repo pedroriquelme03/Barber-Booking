@@ -52,6 +52,12 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
           isActive={activeView === 'schedule'}
           onClick={() => setActiveView('schedule')}
         />
+        <NavItem
+          label="Relatórios"
+          icon={<CalendarDaysIcon className="w-6 h-6" />}  // reutilizando ícone
+          isActive={activeView === 'reports'}
+          onClick={() => setActiveView('reports')}
+        />
       </nav>
     </div>
   );
