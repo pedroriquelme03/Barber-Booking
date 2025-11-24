@@ -65,8 +65,17 @@ const App: React.FC = () => {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j?.error || 'Falha ao criar agendamento');
+        let message = 'Falha ao criar agendamento';
+        try {
+          const text = await res.text();
+          try {
+            const j = JSON.parse(text);
+            message = j?.error || message;
+          } catch {
+            if (text) message = text;
+          }
+        } catch {}
+        throw new Error(message);
       }
       setBooking(prev => ({ ...prev, client }));
       setStep('confirmation');

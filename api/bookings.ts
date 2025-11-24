@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+// Tipos afrouxados para evitar dependência de @vercel/node em build local
 import { Client } from 'pg';
 
 async function getClient() {
@@ -14,7 +14,7 @@ async function getClient() {
 	return client;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: any, res: any) {
 	if (req.method === 'GET') {
 		try {
 			const professionalId = (req.query.professional_id as string) || undefined;
@@ -143,6 +143,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 			const client = await getClient();
 			try {
 				await client.query('BEGIN');
+
+				// validar profissional (se informado)
+				if (professionalId) {
+					const chk = await client.query(
+						`select 1 from public.professionals where id = $1 limit 1`,
+						[professionalId]
+					);
+					if (!chk.rows[0]) {
+						await client.query('ROLLBACK');
+						return res.status(400).json({
+							ok: false,
+							code: 'PROFESSIONAL_NOT_FOUND',
+							error: `Profissional não encontrado: ${professionalId}`,
+						});
+					}
+				}
+
+				// validar serviços
+				const serviceIds = services.map(s => s.id);
+				if (serviceIds.length) {
+					const found = await client.query(
+						`select id from public.services where id = any($1::int[])`,
+						[serviceIds]
+					);
+					const foundIds = new Set<number>(found.rows.map(r => Number(r.id)));
+					const missing = serviceIds.filter(id => !foundIds.has(Number(id)));
+					if (missing.length) {
+						await client.query('ROLLBACK');
+						return res.status(400).json({
+							ok: false,
+							code: 'SERVICES_NOT_FOUND',
+							error: `IDs de serviços inexistentes: ${missing.join(', ')}`,
+							details: { sent: serviceIds, found: Array.from(foundIds) }
+						});
+					}
+				}
 
 				// obter ou criar cliente por email
 				const existing = await client.query(
