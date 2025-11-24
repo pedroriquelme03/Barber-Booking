@@ -192,12 +192,13 @@ export default async function handler(req: any, res: any) {
 				}
 			}
 
-			// validar serviços
+			// validar serviços e coletar profissional responsável por serviço (quando existir)
 			const serviceIds = services.map(s => s.id);
+			let inferredProfessionalId: string | null = null;
 			if (serviceIds.length) {
 				const { data: foundServices, error: svcErr } = await supabase
 					.from('services')
-					.select('id')
+					.select('id, responsible_professional_id')
 					.in('id', serviceIds);
 				if (svcErr) {
 					return res.status(500).json({ ok: false, error: svcErr.message });
@@ -211,6 +212,22 @@ export default async function handler(req: any, res: any) {
 						error: `IDs de serviços inexistentes: ${missing.join(', ')}`,
 						details: { sent: serviceIds, found: Array.from(foundIds) }
 					});
+				}
+				// inferir profissional se não foi passado e todos os serviços apontam para o mesmo responsável não-nulo
+				const distinctPros = Array.from(new Set((foundServices || [])
+					.map((r: any) => r.responsible_professional_id)
+					.filter((v: any) => v != null)));
+				if (!professionalId) {
+					if (distinctPros.length === 1) {
+						inferredProfessionalId = String(distinctPros[0]);
+					} else if (distinctPros.length > 1) {
+						return res.status(400).json({
+							ok: false,
+							code: 'SERVICES_WITH_DIFFERENT_PROFESSIONALS',
+							error: 'Os serviços selecionados possuem profissionais responsáveis diferentes. Escolha um profissional.',
+							details: { serviceIds, distinctPros }
+						});
+					}
 				}
 			}
 
@@ -257,7 +274,7 @@ export default async function handler(req: any, res: any) {
 				.insert({
 					date,
 					time,
-					professional_id: professionalId,
+					professional_id: professionalId || inferredProfessionalId,
 					client_id: clientId,
 				})
 				.select('id')
