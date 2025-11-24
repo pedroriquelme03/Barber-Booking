@@ -1,5 +1,6 @@
 // Tipos afrouxados para evitar dependência de @vercel/node em build local
 import { Client } from 'pg';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 async function getClient() {
 	const databaseUrl = process.env.DATABASE_URL;
@@ -140,96 +141,132 @@ export default async function handler(req: any, res: any) {
 
 			const time = timeRaw.length === 5 ? `${timeRaw}:00` : timeRaw;
 
-			const client = await getClient();
-			try {
-				await client.query('BEGIN');
+			// Supabase server client (usa service role se disponível)
+			const supabaseUrl =
+				process.env.SUPABASE_URL ||
+				process.env.VITE_SUPABASE_URL;
+			const supabaseKey =
+				process.env.SUPABASE_SERVICE_ROLE_KEY || // recomendado para server
+				process.env.VITE_SUPABASE_ANON_KEY;
 
-				// validar profissional (se informado)
-				if (professionalId) {
-					const chk = await client.query(
-						`select 1 from public.professionals where id = $1 limit 1`,
-						[professionalId]
-					);
-					if (!chk.rows[0]) {
-						await client.query('ROLLBACK');
-						return res.status(400).json({
-							ok: false,
-							code: 'PROFESSIONAL_NOT_FOUND',
-							error: `Profissional não encontrado: ${professionalId}`,
-						});
-					}
-				}
-
-				// validar serviços
-				const serviceIds = services.map(s => s.id);
-				if (serviceIds.length) {
-					const found = await client.query(
-						`select id from public.services where id = any($1::int[])`,
-						[serviceIds]
-					);
-					const foundIds = new Set<number>(found.rows.map(r => Number(r.id)));
-					const missing = serviceIds.filter(id => !foundIds.has(Number(id)));
-					if (missing.length) {
-						await client.query('ROLLBACK');
-						return res.status(400).json({
-							ok: false,
-							code: 'SERVICES_NOT_FOUND',
-							error: `IDs de serviços inexistentes: ${missing.join(', ')}`,
-							details: { sent: serviceIds, found: Array.from(foundIds) }
-						});
-					}
-				}
-
-				// obter ou criar cliente por email
-				const existing = await client.query(
-					`select id from public.clients where email = $1 limit 1`,
-					[clientPayload.email]
-				);
-				let clientId: string;
-				if (existing.rows[0]?.id) {
-					clientId = existing.rows[0].id;
-					// opcional: atualizar dados
-					await client.query(
-						`update public.clients set name = $1, phone = $2, notes = coalesce($3, notes), updated_at = now() where id = $4`,
-						[clientPayload.name, clientPayload.phone, clientPayload.notes ?? null, clientId]
-					);
-				} else {
-					const inserted = await client.query(
-						`insert into public.clients (name, phone, email, notes)
-             values ($1, $2, $3, $4) returning id`,
-						[clientPayload.name, clientPayload.phone, clientPayload.email, clientPayload.notes ?? null]
-					);
-					clientId = inserted.rows[0].id;
-				}
-
-				// criar booking
-				const bookingIns = await client.query(
-					`insert into public.bookings (date, time, professional_id, client_id)
-           values ($1, $2, $3, $4)
-           returning id`,
-					[date, time, professionalId, clientId]
-				);
-				const bookingId = bookingIns.rows[0].id as string;
-
-				// inserir serviços (quantidade default 1)
-				for (const s of services) {
-					await client.query(
-						`insert into public.booking_services (booking_id, service_id, quantity)
-             values ($1, $2, $3)`,
-						[bookingId, s.id, s.quantity ?? 1]
-					);
-				}
-
-				await client.query('COMMIT');
-				return res.status(201).json({ ok: true, booking_id: bookingId });
-			} catch (e) {
-				try { await client.query('ROLLBACK'); } catch {}
-				// Logar o erro no server para diagnóstico
-				console.error('POST /api/bookings failed:', e);
-				throw e;
-			} finally {
-				try { await client.end(); } catch {}
+			if (!supabaseUrl || !supabaseKey) {
+				return res.status(500).json({
+					ok: false,
+					code: 'SUPABASE_ENV_MISSING',
+					error: 'SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY não configurados',
+				});
 			}
+
+			const supabase = createSupabaseClient(supabaseUrl, supabaseKey);
+
+			// validar profissional (se informado)
+			if (professionalId) {
+				const { data: prof, error: profErr } = await supabase
+					.from('professionals')
+					.select('id')
+					.eq('id', professionalId)
+					.limit(1)
+					.single();
+				if (profErr || !prof) {
+					return res.status(400).json({
+						ok: false,
+						code: 'PROFESSIONAL_NOT_FOUND',
+						error: `Profissional não encontrado: ${professionalId}`,
+					});
+				}
+			}
+
+			// validar serviços
+			const serviceIds = services.map(s => s.id);
+			if (serviceIds.length) {
+				const { data: foundServices, error: svcErr } = await supabase
+					.from('services')
+					.select('id')
+					.in('id', serviceIds);
+				if (svcErr) {
+					return res.status(500).json({ ok: false, error: svcErr.message });
+				}
+				const foundIds = new Set<number>((foundServices || []).map(r => Number(r.id)));
+				const missing = serviceIds.filter(id => !foundIds.has(Number(id)));
+				if (missing.length) {
+					return res.status(400).json({
+						ok: false,
+						code: 'SERVICES_NOT_FOUND',
+						error: `IDs de serviços inexistentes: ${missing.join(', ')}`,
+						details: { sent: serviceIds, found: Array.from(foundIds) }
+					});
+				}
+			}
+
+			// obter ou criar cliente por email
+			let clientId: string | null = null;
+			const { data: existingClient, error: findClientErr } = await supabase
+				.from('clients')
+				.select('id')
+				.eq('email', clientPayload.email!)
+				.limit(1)
+				.single();
+			if (existingClient?.id) {
+				clientId = existingClient.id as unknown as string;
+				// atualizar dados básicos
+				await supabase
+					.from('clients')
+					.update({
+						name: clientPayload.name,
+						phone: clientPayload.phone,
+						notes: clientPayload.notes ?? null,
+						updated_at: new Date().toISOString(),
+					})
+					.eq('id', clientId);
+			} else {
+				const { data: insertedClient, error: insClientErr } = await supabase
+					.from('clients')
+					.insert({
+						name: clientPayload.name,
+						phone: clientPayload.phone,
+						email: clientPayload.email,
+						notes: clientPayload.notes ?? null,
+					})
+					.select('id')
+					.single();
+				if (insClientErr) {
+					return res.status(500).json({ ok: false, error: insClientErr.message });
+				}
+				clientId = (insertedClient as any).id as string;
+			}
+
+			// criar booking
+			const { data: bookingData, error: bookingErr } = await supabase
+				.from('bookings')
+				.insert({
+					date,
+					time,
+					professional_id: professionalId,
+					client_id: clientId,
+				})
+				.select('id')
+				.single();
+			if (bookingErr) {
+				return res.status(500).json({ ok: false, error: bookingErr.message });
+			}
+			const bookingId = (bookingData as any).id as string;
+
+			// inserir serviços
+			const rows = services.map(s => ({
+				booking_id: bookingId,
+				service_id: s.id,
+				quantity: s.quantity ?? 1,
+			}));
+			if (rows.length) {
+				const { error: bsErr } = await supabase
+					.from('booking_services')
+					.insert(rows);
+				if (bsErr) {
+					return res.status(500).json({ ok: false, error: bsErr.message });
+				}
+			}
+
+			return res.status(201).json({ ok: true, booking_id: bookingId });
 		} catch (err: any) {
 			return res.status(500).json({
 				ok: false,
