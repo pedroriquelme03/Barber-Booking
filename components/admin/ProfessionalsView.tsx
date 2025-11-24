@@ -158,13 +158,20 @@ const ProfessionalsView: React.FC = () => {
 
       <div className="bg-gray-800 rounded-lg border border-gray-700">
         <table className="w-full text-left table-fixed">
+          <colgroup>
+            <col className="w-[28%]" />
+            <col className="w-[36%]" />
+            <col className="w-[18%]" />
+            <col className="w-[10%]" />
+            <col className="w-[8%]" />
+          </colgroup>
           <thead>
             <tr className="text-gray-300 border-b border-gray-700">
               <th className="p-3 w-[28%]">Nome</th>
-              <th className="p-3 w-[32%]">E-mail</th>
-              <th className="p-3 w-[20%]">Telefone</th>
-              <th className="p-3">Status</th>
-              <th className="p-3 text-right">Ações</th>
+              <th className="p-3 w-[36%]">E-mail</th>
+              <th className="p-3 w-[18%]">Telefone</th>
+              <th className="p-3 w-[10%]">Status</th>
+              <th className="p-3 w-[8%] text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -172,39 +179,47 @@ const ProfessionalsView: React.FC = () => {
               <tr key={p.id} className="border-b border-gray-700/60">
                 {editingId === p.id ? (
                   <>
-                    <td className="p-3">
+                    <td className="p-3 w-[28%]">
                       <input value={editName} onChange={e => setEditName(e.target.value)} className="bg-gray-700 text-white rounded px-2 py-1 border border-gray-600 w-full" />
                     </td>
-                    <td className="p-3">
+                    <td className="p-3 w-[36%]">
                       <input value={editEmail} onChange={e => setEditEmail(e.target.value)} className="bg-gray-700 text-white rounded px-2 py-1 border border-gray-600 w-full" />
                     </td>
-                    <td className="p-3">
+                    <td className="p-3 w-[18%]">
                       <input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="bg-gray-700 text-white rounded px-2 py-1 border border-gray-600 w-full" />
                     </td>
-                    <td className="p-3">
+                    <td className="p-3 w-[10%]">
                       <label className="inline-flex items-center gap-2 text-gray-300">
                         <input type="checkbox" checked={editActive} onChange={e => setEditActive(e.target.checked)} />
                         Ativo
                       </label>
                     </td>
-                    <td className="p-3 text-right space-x-2">
-                      <button onClick={saveEdit} className="bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-semibold px-3 py-1 rounded">Salvar</button>
-                      <button onClick={cancelEdit} className="bg-gray-600 hover:bg-gray-500 text-white font-semibold px-3 py-1 rounded">Cancelar</button>
+                    <td className="p-3 w-[8%]">
+                      <div className="w-full flex items-center justify-end gap-2">
+                        <button onClick={saveEdit} className="bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-semibold px-3 py-1 rounded">Salvar</button>
+                        <button onClick={cancelEdit} className="bg-gray-600 hover:bg-gray-500 text-white font-semibold px-3 py-1 rounded">Cancelar</button>
+                      </div>
                     </td>
                   </>
                 ) : (
                   <>
-                    <td className="p-3 text-white whitespace-normal break-words">{p.name}</td>
-                    <td className="p-3 text-gray-300 whitespace-normal break-words"><span className="block sm:max-w-none max-w-[180px] truncate sm:truncate-none">{p.email}</span></td>
-                    <td className="p-3 text-gray-300 whitespace-normal break-words">{p.phone}</td>
-                    <td className="p-3">
+                    <td className="p-3 w-[28%] text-white">
+                      <div className="min-w-0 truncate">{p.name}</div>
+                    </td>
+                    <td className="p-3 w-[36%] text-gray-300">
+                      <div className="min-w-0 max-w-[220px] truncate">{p.email}</div>
+                    </td>
+                    <td className="p-3 w-[18%] text-gray-300 whitespace-nowrap">{p.phone}</td>
+                    <td className="p-3 w-[10%]">
                       <span className={p.is_active ? 'text-emerald-400' : 'text-gray-400'}>
                         {p.is_active ? 'Ativo' : 'Inativo'}
                       </span>
                     </td>
-                    <td className="p-3 text-right space-x-3">
-                      <button onClick={() => startEdit(p)} className="text-gray-300 hover:text-blue-400 align-middle"><PencilIcon className="w-5 h-5 inline" /></button>
-                      <button onClick={() => deleteProfessional(p.id)} className="text-gray-300 hover:text-red-400 align-middle"><TrashIcon className="w-5 h-5 inline" /></button>
+                    <td className="p-3 w-[8%]">
+                      <div className="w-full flex items-center justify-end gap-3">
+                        <button onClick={() => startEdit(p)} className="text-gray-300 hover:text-blue-400 align-middle"><PencilIcon className="w-5 h-5 inline" /></button>
+                        <button onClick={() => deleteProfessional(p.id)} className="text-gray-300 hover:text-red-400 align-middle"><TrashIcon className="w-5 h-5 inline" /></button>
+                      </div>
                     </td>
                   </>
                 )}
