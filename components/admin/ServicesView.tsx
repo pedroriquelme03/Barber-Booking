@@ -1,13 +1,31 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Service } from '../../types';
-import { MOCK_SERVICES } from '../../constants';
 import { ClockIcon, DollarSignIcon, PencilIcon, PlusCircleIcon, TrashIcon } from '../icons';
 import ServiceModal from './ServiceModal';
 
 const ServicesView: React.FC = () => {
-  const [services, setServices] = useState<Service[]>(MOCK_SERVICES);
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/services');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Erro ao carregar serviços');
+      setServices((data.services || []) as Service[]);
+    } catch (e: any) {
+      setError(e.message || 'Erro ao carregar serviços');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
 
   const handleOpenModal = (service: Service | null = null) => {
     setEditingService(service);
@@ -19,20 +37,63 @@ const ServicesView: React.FC = () => {
     setEditingService(null);
   };
 
-  const handleSaveService = (service: Service) => {
-    if (editingService) {
-      setServices(services.map(s => s.id === service.id ? service : s));
-    } else {
-      const newService = { ...service, id: Math.max(...services.map(s => s.id)) + 1 };
-      setServices([...services, newService]);
+  const handleSaveService = async (service: Service) => {
+    try {
+      setLoading(true);
+      setError(null);
+      if (editingService) {
+        const res = await fetch('/api/services', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingService.id,
+            name: service.name,
+            price: service.price,
+            duration: service.duration,
+            description: service.description,
+            responsibleProfessionalId: service.responsibleProfessionalId ?? null,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || 'Erro ao atualizar serviço');
+      } else {
+        const res = await fetch('/api/services', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: service.name,
+            price: service.price,
+            duration: service.duration,
+            description: service.description,
+            responsibleProfessionalId: service.responsibleProfessionalId ?? null,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || 'Erro ao criar serviço');
+      }
+      await load();
+      handleCloseModal();
+    } catch (e: any) {
+      setError(e.message || 'Erro ao salvar serviço');
+    } finally {
+      setLoading(false);
     }
-    handleCloseModal();
   };
   
-  const handleDeleteService = (serviceId: number) => {
-      if(window.confirm("Tem certeza que deseja excluir este serviço?")) {
-          setServices(services.filter(s => s.id !== serviceId));
-      }
+  const handleDeleteService = async (serviceId: number) => {
+    if (!window.confirm("Tem certeza que deseja excluir este serviço?")) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(`/api/services?id=${serviceId}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Erro ao excluir serviço');
+      await load();
+    } catch (e: any) {
+      setError(e.message || 'Erro ao excluir serviço');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -48,11 +109,13 @@ const ServicesView: React.FC = () => {
         </button>
       </div>
 
+      {error && <div className="text-red-400 mb-4">{error}</div>}
       <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-gray-700/50">
             <tr>
               <th className="p-4 font-semibold">Serviço</th>
+              <th className="p-4 font-semibold">Profissional</th>
               <th className="p-4 font-semibold text-center">Duração</th>
               <th className="p-4 font-semibold text-center">Preço</th>
               <th className="p-4 font-semibold text-right">Ações</th>
@@ -64,6 +127,9 @@ const ServicesView: React.FC = () => {
                 <td className="p-4">
                     <p className="font-bold">{service.name}</p>
                     <p className="text-sm text-gray-400 max-w-md">{service.description}</p>
+                </td>
+                <td className="p-4">
+                  <span className="text-gray-200">{service.responsibleProfessionalName || '—'}</span>
                 </td>
                 <td className="p-4 text-center">
                     <span className="flex items-center justify-center"><ClockIcon className="w-4 h-4 mr-1.5 text-amber-400"/> {service.duration} min</span>

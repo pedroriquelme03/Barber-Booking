@@ -23,6 +23,9 @@ const ServiceItem: React.FC<{ service: Service; isSelected: boolean; onToggle: (
         <div>
           <h3 className="text-lg font-bold text-white">{service.name}</h3>
           <p className="text-gray-400 text-sm mt-1">{service.description}</p>
+          <p className="text-gray-300 text-sm mt-1">
+            {service.responsibleProfessionalName ? `Profissional: ${service.responsibleProfessionalName}` : 'Profissional: —'}
+          </p>
           <div className="flex items-center space-x-4 mt-3 text-gray-300 text-sm">
             <span className="flex items-center"><ClockIcon className="w-4 h-4 mr-1.5 text-amber-400" /> {service.duration} min</span>
             <span className="flex items-center"><DollarSignIcon className="w-4 h-4 mr-1.5 text-amber-400" /> R${service.price.toFixed(2)}</span>

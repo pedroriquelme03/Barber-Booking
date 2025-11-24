@@ -1,7 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Service, Booking, Client } from './types';
-import { MOCK_SERVICES } from './constants';
 import Header from './components/Header';
 import StepIndicator from './components/StepIndicator';
 import ServiceSelector from './components/ServiceSelector';
@@ -19,6 +18,26 @@ const App: React.FC = () => {
   const [booking, setBooking] = useState<Partial<Booking>>({
     services: [],
   });
+  const [availableServices, setAvailableServices] = useState<Service[]>([]);
+  const [servicesError, setServicesError] = useState<string | null>(null);
+  const [servicesLoading, setServicesLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    (async () => {
+      setServicesLoading(true);
+      setServicesError(null);
+      try {
+        const res = await fetch('/api/services');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || 'Erro ao carregar serviços');
+        setAvailableServices((data.services || []) as Service[]);
+      } catch (e: any) {
+        setServicesError(e?.message || 'Erro ao carregar serviços');
+      } finally {
+        setServicesLoading(false);
+      }
+    })();
+  }, []);
 
   const totalDuration = useMemo(() => 
     booking.services?.reduce((total, s) => total + s.duration, 0) || 0,
@@ -94,7 +113,7 @@ const App: React.FC = () => {
       case 'services':
         return (
           <ServiceSelector
-            services={MOCK_SERVICES}
+            services={availableServices}
             selectedServices={booking.services || []}
             onSelectServices={handleSelectServices}
             onNext={() => setStep('datetime')}

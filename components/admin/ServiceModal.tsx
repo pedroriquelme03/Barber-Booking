@@ -13,7 +13,22 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ service, onClose, onSave })
     description: '',
     price: 0,
     duration: 0,
+    responsibleProfessionalId: null,
+    responsibleProfessionalName: null,
   });
+  const [professionals, setProfessionals] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/professionals');
+        const data = await res.json();
+        if (res.ok) {
+          setProfessionals((data.professionals || []).map((p: any) => ({ id: p.id, name: p.name })));
+        }
+      } catch {}
+    })();
+  }, []);
 
   useEffect(() => {
     if (service) {
@@ -22,6 +37,8 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ service, onClose, onSave })
         description: service.description,
         price: service.price,
         duration: service.duration,
+        responsibleProfessionalId: service.responsibleProfessionalId ?? null,
+        responsibleProfessionalName: service.responsibleProfessionalName ?? null,
       });
     }
   }, [service]);
@@ -76,6 +93,23 @@ const ServiceModal: React.FC<ServiceModalProps> = ({ service, onClose, onSave })
                 <label htmlFor="price" className="block text-sm font-medium text-gray-300 mb-1">Preço (R$)</label>
                 <input type="number" id="price" name="price" value={formData.price} onChange={handleChange} className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-amber-500 focus:border-amber-500" required min="0.01" step="0.01" />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Profissional responsável</label>
+            <select
+              value={formData.responsibleProfessionalId ?? ''}
+              onChange={(e) => {
+                const id = e.target.value || null;
+                const name = professionals.find(p => p.id === id)?.name ?? null;
+                setFormData(prev => ({ ...prev, responsibleProfessionalId: id, responsibleProfessionalName: name }));
+              }}
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 focus:ring-amber-500 focus:border-amber-500"
+            >
+              <option value="">Sem responsável</option>
+              {professionals.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
           </div>
           <div className="flex justify-end space-x-4 pt-6">
             <button type="button" onClick={onClose} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-5 rounded-lg transition-colors">Cancelar</button>

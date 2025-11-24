@@ -5,6 +5,9 @@ export interface Service {
   price: number;
   duration: number; // in minutes
   description: string;
+  // opcional: profissional responsável
+  responsibleProfessionalId?: string | null;
+  responsibleProfessionalName?: string | null;
 }
 
 export interface Client {
