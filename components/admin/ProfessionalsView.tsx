@@ -156,7 +156,8 @@ const ProfessionalsView: React.FC = () => {
 
       {error && <div className="text-red-400 mb-4">{error}</div>}
 
-      <div className="bg-gray-800 rounded-lg border border-gray-700">
+      {/* Tabela (desktop) */}
+      <div className="hidden md:block bg-gray-800 rounded-lg border border-gray-700">
         <table className="w-full text-left table-fixed">
           <colgroup>
             <col className="w-[28%]" />
@@ -230,6 +231,57 @@ const ProfessionalsView: React.FC = () => {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Cards (mobile) */}
+      <div className="md:hidden grid gap-3">
+        {items.map(p => (
+          <div key={p.id} className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+            {editingId === p.id ? (
+              <div className="grid gap-3">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Nome</label>
+                  <input value={editName} onChange={e => setEditName(e.target.value)} className="bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 w-full" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">E-mail</label>
+                  <input value={editEmail} onChange={e => setEditEmail(e.target.value)} className="bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 w-full" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Telefone</label>
+                  <input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="bg-gray-700 text-white rounded px-3 py-2 border border-gray-600 w-full" />
+                </div>
+                <label className="inline-flex items-center gap-2 text-gray-300">
+                  <input type="checkbox" checked={editActive} onChange={e => setEditActive(e.target.checked)} />
+                  Ativo
+                </label>
+                <div className="flex justify-end gap-2">
+                  <button onClick={saveEdit} className="bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-semibold px-4 py-2 rounded">Salvar</button>
+                  <button onClick={cancelEdit} className="bg-gray-600 hover:bg-gray-500 text-white font-semibold px-4 py-2 rounded">Cancelar</button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-2">
+                <div className="flex justify-between items-start gap-3">
+                  <div className="min-w-0">
+                    <div className="text-white font-semibold truncate">{p.name}</div>
+                    <div className="text-gray-300 truncate">{p.email}</div>
+                    <div className="text-gray-300">{p.phone}</div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => startEdit(p)} className="text-gray-300 hover:text-blue-400"><PencilIcon className="w-5 h-5" /></button>
+                    <button onClick={() => deleteProfessional(p.id)} className="text-gray-300 hover:text-red-400"><TrashIcon className="w-5 h-5" /></button>
+                  </div>
+                </div>
+                <div className="text-sm">
+                  <span className={p.is_active ? 'text-emerald-400' : 'text-gray-400'}>
+                    {p.is_active ? 'Ativo' : 'Inativo'}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

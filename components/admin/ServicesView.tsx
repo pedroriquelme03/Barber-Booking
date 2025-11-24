@@ -110,7 +110,8 @@ const ServicesView: React.FC = () => {
       </div>
 
       {error && <div className="text-red-400 mb-4">{error}</div>}
-      <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+      {/* Tabela desktop */}
+      <div className="hidden md:block bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-gray-700/50">
             <tr>
@@ -147,6 +148,31 @@ const ServicesView: React.FC = () => {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Cards mobile */}
+      <div className="md:hidden grid gap-3">
+        {services.map(service => (
+          <div key={service.id} className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+            <div className="flex justify-between items-start gap-3">
+              <div className="min-w-0">
+                <p className="font-bold text-white truncate">{service.name}</p>
+                <p className="text-sm text-gray-400">{service.description}</p>
+                <p className="text-gray-300 text-sm mt-1">
+                  {service.responsibleProfessionalName ? `Profissional: ${service.responsibleProfessionalName}` : 'Profissional: —'}
+                </p>
+              </div>
+              <div className="inline-flex space-x-3">
+                <button onClick={() => handleOpenModal(service)} className="text-gray-300 hover:text-blue-400"><PencilIcon className="w-5 h-5"/></button>
+                <button onClick={() => handleDeleteService(service.id)} className="text-gray-300 hover:text-red-400"><TrashIcon className="w-5 h-5"/></button>
+              </div>
+            </div>
+            <div className="flex justify-between text-sm text-gray-300 mt-3">
+              <span className="flex items-center"><ClockIcon className="w-4 h-4 mr-1.5 text-amber-400"/> {service.duration} min</span>
+              <span className="flex items-center"><DollarSignIcon className="w-4 h-4 mr-1.5 text-amber-400"/> R${service.price.toFixed(2)}</span>
+            </div>
+          </div>
+        ))}
       </div>
 
       {isModalOpen && (
