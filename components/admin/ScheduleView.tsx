@@ -236,7 +236,11 @@ const ScheduleView: React.FC = () => {
             const rows = grouped.find(([d]) => d === key)?.[1] || [];
             return (
               <div key={key} className="bg-gray-800 rounded border border-gray-700 p-3">
-                <div className="font-semibold text-gray-200 mb-2">
+                <div
+                  className="font-semibold text-gray-200 mb-2 cursor-pointer hover:text-amber-400"
+                  onClick={() => { setCurrentDate(day); setView('day'); }}
+                  title="Ver dia"
+                >
                   {day.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })}
                 </div>
                 {rows.length === 0 ? (
@@ -274,7 +278,13 @@ const ScheduleView: React.FC = () => {
               const inMonth = day.getMonth() === currentDate.getMonth();
               const rows = grouped.find(([d]) => d === key)?.[1] || [];
               return (
-                <div key={idx} className={`min-h-28 p-2 rounded border ${inMonth ? 'border-gray-700 bg-gray-800' : 'border-gray-800 bg-gray-900/40'}`}>
+                <div
+                  key={idx}
+                  className={`p-2 rounded border cursor-pointer ${inMonth ? 'border-gray-700 bg-gray-800 hover:border-amber-500' : 'border-gray-800 bg-gray-900/40'}`}
+                  style={{ aspectRatio: '1 / 1' }}
+                  onClick={() => { setCurrentDate(day); setView('day'); }}
+                  title="Ver dia"
+                >
                   <div className={`text-sm mb-2 ${inMonth ? 'text-gray-200' : 'text-gray-500'}`}>
                     {day.getDate().toString().padStart(2,'0')}
                   </div>
