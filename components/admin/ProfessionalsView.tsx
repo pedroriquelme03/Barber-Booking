@@ -157,12 +157,12 @@ const ProfessionalsView: React.FC = () => {
       {error && <div className="text-red-400 mb-4">{error}</div>}
 
       <div className="bg-gray-800 rounded-lg border border-gray-700">
-        <table className="w-full text-left">
+        <table className="w-full text-left table-fixed">
           <thead>
             <tr className="text-gray-300 border-b border-gray-700">
-              <th className="p-3">Nome</th>
-              <th className="p-3">E-mail</th>
-              <th className="p-3">Telefone</th>
+              <th className="p-3 w-[28%]">Nome</th>
+              <th className="p-3 w-[32%]">E-mail</th>
+              <th className="p-3 w-[20%]">Telefone</th>
               <th className="p-3">Status</th>
               <th className="p-3 text-right">Ações</th>
             </tr>
@@ -194,9 +194,9 @@ const ProfessionalsView: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <td className="p-3 text-white">{p.name}</td>
-                    <td className="p-3 text-gray-300">{p.email}</td>
-                    <td className="p-3 text-gray-300">{p.phone}</td>
+                    <td className="p-3 text-white whitespace-normal break-words">{p.name}</td>
+                    <td className="p-3 text-gray-300 whitespace-normal break-words"><span className="block sm:max-w-none max-w-[180px] truncate sm:truncate-none">{p.email}</span></td>
+                    <td className="p-3 text-gray-300 whitespace-normal break-words">{p.phone}</td>
                     <td className="p-3">
                       <span className={p.is_active ? 'text-emerald-400' : 'text-gray-400'}>
                         {p.is_active ? 'Ativo' : 'Inativo'}

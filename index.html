@@ -9,6 +9,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       /* Custom scrollbar for a better look */
+      html, body {
+        overflow-x: hidden; /* bloqueia scroll horizontal global */
+        max-width: 100%;
+      }
       ::-webkit-scrollbar {
         width: 8px;
       }
