@@ -162,6 +162,21 @@ const AppointmentsView: React.FC = () => {
               />
             </div>
           </div>
+          <div className="md:col-span-5 flex justify-end">
+            <button
+              onClick={() => {
+                setProfessionalId('');
+                setServiceId('');
+                setClientQuery('');
+                setTime('');
+                setTimeFrom('');
+                setTimeTo('');
+              }}
+              className="bg-gray-700 hover:bg-gray-600 text-white font-semibold px-4 py-2 rounded transition-colors"
+            >
+              Limpar filtros
+            </button>
+          </div>
         </div>
       </div>
 
