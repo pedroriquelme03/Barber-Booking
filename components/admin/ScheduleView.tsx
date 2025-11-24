@@ -33,6 +33,9 @@ const ScheduleView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [view, setView] = useState<'month' | 'week' | 'day'>('month');
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+
   useEffect(() => {
     (async () => {
       try {
@@ -45,6 +48,31 @@ const ScheduleView: React.FC = () => {
     })();
   }, []);
 
+  const formatDate = (d: Date) => d.toISOString().slice(0,10);
+  const startOfWeek = (d: Date) => {
+    const day = (d.getDay() + 6) % 7; // Monday=0
+    const r = new Date(d);
+    r.setDate(d.getDate() - day);
+    r.setHours(0,0,0,0);
+    return r;
+  };
+  const endOfWeek = (d: Date) => {
+    const r = startOfWeek(d);
+    r.setDate(r.getDate() + 6);
+    r.setHours(23,59,59,999);
+    return r;
+  };
+  const startOfMonth = (d: Date) => {
+    const r = new Date(d.getFullYear(), d.getMonth(), 1);
+    r.setHours(0,0,0,0);
+    return r;
+  };
+  const endOfMonth = (d: Date) => {
+    const r = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    r.setHours(23,59,59,999);
+    return r;
+  };
+
   const load = async () => {
     if (!selected) { setBookings([]); return; }
     setLoading(true);
@@ -52,6 +80,23 @@ const ScheduleView: React.FC = () => {
     try {
       const qs = new URLSearchParams();
       qs.set('professional_id', selected);
+      // limitar janela de tempo conforme a visão
+      if (view === 'day') {
+        const from = formatDate(currentDate);
+        const to = formatDate(currentDate);
+        qs.set('from', from);
+        qs.set('to', to);
+      } else if (view === 'week') {
+        const from = formatDate(startOfWeek(currentDate));
+        const to = formatDate(endOfWeek(currentDate));
+        qs.set('from', from);
+        qs.set('to', to);
+      } else {
+        const from = formatDate(startOfMonth(currentDate));
+        const to = formatDate(endOfMonth(currentDate));
+        qs.set('from', from);
+        qs.set('to', to);
+      }
       const res = await fetch(`/api/bookings?${qs.toString()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Erro ao carregar agenda');
@@ -66,7 +111,7 @@ const ScheduleView: React.FC = () => {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected]);
+  }, [selected, view, currentDate]);
 
   const grouped = useMemo(() => {
     const groups = new Map<string, BookingRow[]>();
@@ -98,22 +143,65 @@ const ScheduleView: React.FC = () => {
         </div>
       </div>
 
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+        <div className="inline-flex rounded overflow-hidden border border-gray-700">
+          <button onClick={() => setView('month')} className={`px-3 py-2 ${view==='month'?'bg-amber-500 text-gray-900':'bg-gray-800 text-gray-200'}`}>Mês</button>
+          <button onClick={() => setView('week')} className={`px-3 py-2 ${view==='week'?'bg-amber-500 text-gray-900':'bg-gray-800 text-gray-200'}`}>Semana</button>
+          <button onClick={() => setView('day')} className={`px-3 py-2 ${view==='day'?'bg-amber-500 text-gray-900':'bg-gray-800 text-gray-200'}`}>Dia</button>
+        </div>
+        <div className="inline-flex items-center gap-2">
+          <button onClick={() => setCurrentDate(new Date())} className="px-3 py-2 bg-gray-700 text-white rounded">Hoje</button>
+          <button
+            onClick={() => {
+              const d = new Date(currentDate);
+              if (view === 'day') d.setDate(d.getDate() - 1);
+              else if (view === 'week') d.setDate(d.getDate() - 7);
+              else d.setMonth(d.getMonth() - 1);
+              setCurrentDate(d);
+            }}
+            className="px-3 py-2 bg-gray-800 text-white rounded border border-gray-700"
+          >
+            ◀
+          </button>
+          <div className="text-gray-200 font-semibold min-w-[140px] text-center">
+            {view === 'day' && currentDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+            {view === 'week' && `${startOfWeek(currentDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} - ${endOfWeek(currentDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`}
+            {view === 'month' && currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+          </div>
+          <button
+            onClick={() => {
+              const d = new Date(currentDate);
+              if (view === 'day') d.setDate(d.getDate() + 1);
+              else if (view === 'week') d.setDate(d.getDate() + 7);
+              else d.setMonth(d.getMonth() + 1);
+              setCurrentDate(d);
+            }}
+            className="px-3 py-2 bg-gray-800 text-white rounded border border-gray-700"
+          >
+            ▶
+          </button>
+        </div>
+      </div>
+
       {error && <div className="text-red-400 mb-4">{error}</div>}
 
       {!selected && <div className="text-gray-400">Escolha um profissional para visualizar a agenda.</div>}
       {selected && loading && <div className="text-gray-300">Carregando agenda...</div>}
 
       {selected && !loading && grouped.length === 0 && (
-        <div className="text-gray-400">Nenhum agendamento para este profissional.</div>
+        <div className="text-gray-400">Nenhum agendamento para este período.</div>
       )}
 
-      {grouped.map(([date, rows]) => (
-        <div key={date} className="mb-6">
+      {/* Dia */}
+      {selected && !loading && view === 'day' && (
+        <div className="mb-6">
           <h3 className="text-amber-400 font-bold text-lg mb-3 pb-2 border-b-2 border-gray-700">
-            {new Date(date).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+            {currentDate.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
           </h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {rows.sort((a,b) => a.time.localeCompare(b.time)).map(b => (
+            {(grouped.find(([d]) => d === formatDate(currentDate))?.[1] || [])
+              .sort((a,b) => a.time.localeCompare(b.time))
+              .map(b => (
               <div key={b.booking_id} className="bg-gray-800 p-5 rounded-lg border border-gray-700">
                 <div className="flex justify-between items-start">
                   <div>
@@ -129,16 +217,84 @@ const ScheduleView: React.FC = () => {
                 <div>
                   <h5 className="font-semibold mb-2 text-gray-200">Serviços:</h5>
                   <ul className="list-disc list-inside text-gray-300 space-y-1">
-                    {(b.services || []).map(s => (
-                      <li key={s.id}>{s.name}</li>
-                    ))}
+                    {(b.services || []).map(s => (<li key={s.id}>{s.name}</li>))}
                   </ul>
                 </div>
               </div>
             ))}
           </div>
         </div>
-      ))}
+      )}
+
+      {/* Semana */}
+      {selected && !loading && view === 'week' && (
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+          {Array.from({ length: 7 }).map((_, i) => {
+            const day = new Date(startOfWeek(currentDate));
+            day.setDate(day.getDate() + i);
+            const key = formatDate(day);
+            const rows = grouped.find(([d]) => d === key)?.[1] || [];
+            return (
+              <div key={key} className="bg-gray-800 rounded border border-gray-700 p-3">
+                <div className="font-semibold text-gray-200 mb-2">
+                  {day.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })}
+                </div>
+                {rows.length === 0 ? (
+                  <div className="text-gray-500 text-sm">Sem agendamentos</div>
+                ) : (
+                  <ul className="space-y-2">
+                    {rows.sort((a,b) => a.time.localeCompare(b.time)).map(b => (
+                      <li key={b.booking_id} className="bg-gray-700/60 rounded px-2 py-1 flex justify-between">
+                        <span className="text-gray-200">{b.time.slice(0,5)}</span>
+                        <span className="text-gray-300">{b.client_name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Mês */}
+      {selected && !loading && view === 'month' && (
+        <div className="grid grid-cols-7 gap-2">
+          {(() => {
+            const first = startOfMonth(currentDate);
+            const start = startOfWeek(first);
+            const cells: Date[] = [];
+            for (let i = 0; i < 42; i++) {
+              const d = new Date(start);
+              d.setDate(start.getDate() + i);
+              cells.push(d);
+            }
+            return cells.map((day, idx) => {
+              const key = formatDate(day);
+              const inMonth = day.getMonth() === currentDate.getMonth();
+              const rows = grouped.find(([d]) => d === key)?.[1] || [];
+              return (
+                <div key={idx} className={`min-h-28 p-2 rounded border ${inMonth ? 'border-gray-700 bg-gray-800' : 'border-gray-800 bg-gray-900/40'}`}>
+                  <div className={`text-sm mb-2 ${inMonth ? 'text-gray-200' : 'text-gray-500'}`}>
+                    {day.getDate().toString().padStart(2,'0')}
+                  </div>
+                  <div className="space-y-1">
+                    {rows.slice(0,3).sort((a,b)=>a.time.localeCompare(b.time)).map(b => (
+                      <div key={b.booking_id} className="text-xs bg-gray-700/60 rounded px-1 py-0.5 flex justify-between">
+                        <span className="text-gray-200">{b.time.slice(0,5)}</span>
+                        <span className="text-gray-300 truncate max-w-[80px]">{b.client_name}</span>
+                      </div>
+                    ))}
+                    {rows.length > 3 && (
+                      <div className="text-xs text-gray-400">+{rows.length - 3} mais</div>
+                    )}
+                  </div>
+                </div>
+              );
+            });
+          })()}
+        </div>
+      )}
     </div>
   );
 }
